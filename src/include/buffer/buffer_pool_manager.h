@@ -97,6 +97,10 @@ class BufferPoolManager {
   /** @return size of the buffer pool */
   size_t GetPoolSize() { return pool_size_; }
 
+ private:
+  /** @return the victim frame id */
+  frame_id_t GetVictimFrameId();
+
  protected:
   /**
    * Grading function. Do not modify!

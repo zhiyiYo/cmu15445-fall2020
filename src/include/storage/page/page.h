@@ -78,6 +78,22 @@ class Page {
   /** Zeroes out the data that is held within the page. */
   inline void ResetMemory() { memset(data_, OFFSET_PAGE_START, PAGE_SIZE); }
 
+  /**
+   * update the meta data of page
+   * @param page_id the page id
+   * @param pin_count the pin count
+   * @param is_dirty is page dirty
+   * @param reset_memory whether to reset the memory of page
+   */
+  void update(page_id_t page_id, int pin_count, bool is_dirty, bool reset_memory = false) {
+    page_id_ = page_id;
+    pin_count_ = pin_count;
+    is_dirty_ = is_dirty;
+    if (reset_memory) {
+      ResetMemory();
+    }
+  }
+
   /** The actual data that is stored within a page. */
   char data_[PAGE_SIZE]{};
   /** The ID of this page. */
