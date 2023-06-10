@@ -15,6 +15,7 @@
 #include <list>
 #include <unordered_map>
 #include "buffer/buffer_pool_manager.h"
+#include "common/logger.h"
 
 using namespace std;
 
@@ -70,6 +71,7 @@ Page *BufferPoolManager::FetchPageImpl(page_id_t page_id) {
   //        Note that pages are always found from the free list first.
   auto frame_id = GetVictimFrameId();
   if (frame_id == INVALID_PAGE_ID) {
+    LOG_ERROR("无法找到可用槽位，replacer大小=%lu，缓冲池大小=%lu", replacer_->Size(), pool_size_);
     return nullptr;
   }
 

@@ -109,6 +109,18 @@ class BPlusTree {
 
   void ToString(BPlusTreePage *page, BufferPoolManager *bpm) const;
 
+  BPlusTreePage *ToTreePage(Page *page) { return reinterpret_cast<BPlusTreePage *>(page->GetData()); }
+  InternalPage *ToInternalPage(Page *page) { return reinterpret_cast<InternalPage *>(page->GetData()); }
+  LeafPage *ToLeafPage(Page *page) { return reinterpret_cast<LeafPage *>(page->GetData()); }
+
+  InternalPage *ToInternalPage(BPlusTreePage *page) { return reinterpret_cast<InternalPage *>(page); }
+  LeafPage *ToLeafPage(BPlusTreePage *page) { return reinterpret_cast<LeafPage *>(page); }
+
+  /** @brief create a new page
+   * @param page_id the page id of new page
+   */
+  Page *NewPage(page_id_t *page_id);
+
   // member variable
   std::string index_name_;
   page_id_t root_page_id_;
