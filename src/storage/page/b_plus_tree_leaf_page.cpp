@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <sstream>
+#include <vector>
 
 #include "common/exception.h"
 #include "common/rid.h"
@@ -105,7 +106,8 @@ int B_PLUS_TREE_LEAF_PAGE_TYPE::Insert(const KeyType &key, const ValueType &valu
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveHalfTo(BPlusTreeLeafPage *recipient,
                                             __attribute__((unused)) BufferPoolManager *buffer_pool_manager) {
-  int start = GetMinSize();
+  // 根节点分裂之后就变成了叶节点
+  int start = !IsRootPage() ? GetMinSize() : GetMaxSize() / 2;
   int N = GetSize() - start;
   recipient->CopyNFrom(array + start, N);
 
@@ -161,7 +163,23 @@ bool B_PLUS_TREE_LEAF_PAGE_TYPE::Lookup(const KeyType &key, ValueType *value, co
  * @return   page size after deletion
  */
 INDEX_TEMPLATE_ARGUMENTS
-int B_PLUS_TREE_LEAF_PAGE_TYPE::RemoveAndDeleteRecord(const KeyType &key, const KeyComparator &comparator) { return 0; }
+int B_PLUS_TREE_LEAF_PAGE_TYPE::RemoveAndDeleteRecord(const KeyType &key, const KeyComparator &comparator) {
+  // 寻找第一个大于等于 key 的下标
+  auto index = KeyIndex(key, comparator);
+
+  // 没找到 key 就直接返回
+  if (index < 0 || index == GetSize() || comparator(KeyAt(index), key) != 0) {
+    return GetSize();
+  }
+
+  // 将 index 后面的键值对往前移动一格
+  for (int i = index; i < GetSize() - 1; ++i) {
+    array[i] = array[i + 1];
+  }
+
+  IncreaseSize(-1);
+  return GetSize();
+}
 
 /*****************************************************************************
  * MERGE
@@ -171,7 +189,13 @@ int B_PLUS_TREE_LEAF_PAGE_TYPE::RemoveAndDeleteRecord(const KeyType &key, const 
  * to update the next_page id in the sibling page
  */
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveAllTo(BPlusTreeLeafPage *recipient) {}
+void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveAllTo(BPlusTreeLeafPage *recipient,
+                                           __attribute__((unused)) const KeyType &middle_key,
+                                           __attribute__((unused)) BufferPoolManager *buffer_pool_manager) {
+  recipient->CopyNFrom(array, GetSize());
+  recipient->SetNextPageId(GetNextPageId());
+  SetSize(0);
+}
 
 /*****************************************************************************
  * REDISTRIBUTE
@@ -180,7 +204,15 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveAllTo(BPlusTreeLeafPage *recipient) {}
  * Remove the first key & value pair from this page to "recipient" page.
  */
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeLeafPage *recipient) {}
+void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeLeafPage *recipient,
+                                                  __attribute__((unused)) const KeyType &middle_key,
+                                                  __attribute__((unused)) BufferPoolManager *buffer_pool_manager) {
+  recipient->CopyLastFrom(GetItem(0));
+  for (int i = 0; i < GetSize() - 1; ++i) {
+    array[i] = array[i + 1];
+  }
+  IncreaseSize(-1);
+}
 
 /*
  * Copy the item into the end of my item list. (Append item to my array)
@@ -195,13 +227,22 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyLastFrom(const MappingType &item) {
  * Remove the last key & value pair from this page to "recipient" page.
  */
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeLeafPage *recipient) {}
+void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeLeafPage *recipient,
+                                                   __attribute__((unused)) const KeyType &middle_key,
+                                                   __attribute__((unused)) BufferPoolManager *buffer_pool_manager) {
+  recipient->CopyFirstFrom(GetItem(GetSize() - 1));
+  IncreaseSize(-1);
+}
 
 /*
  * Insert item at the front of my items. Move items accordingly.
  */
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyFirstFrom(const MappingType &item) {}
+void B_PLUS_TREE_LEAF_PAGE_TYPE::CopyFirstFrom(const MappingType &item) {
+  std::copy_backward(array, array + GetSize(), array + GetSize() + 1);
+  array[0] = item;
+  IncreaseSize(1);
+}
 
 template class BPlusTreeLeafPage<GenericKey<4>, RID, GenericComparator<4>>;
 template class BPlusTreeLeafPage<GenericKey<8>, RID, GenericComparator<8>>;

@@ -41,7 +41,7 @@ std::string usageMessage() {
 }
 
 // Remove 'DISABLED_' when you are ready
-TEST(BptTreeTest, DISABLED_UnitTest) {
+TEST(BptTreeTest, UnitTest) {
   int64_t key = 0;
   GenericKey<8> index_key;
   RID rid;
@@ -110,6 +110,7 @@ TEST(BptTreeTest, DISABLED_UnitTest) {
         std::cout << usageMessage();
         break;
     }
+    tree.Draw(bpm, "tree.dot");
   }
   bpm->UnpinPage(header_page->GetPageId(), true);
   delete key_schema;
