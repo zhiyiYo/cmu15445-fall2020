@@ -12,7 +12,7 @@ namespace bustub {
  * set your own input parameters
  */
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *buffer_pool_manager, B_PLUS_TREE_LEAF_PAGE_TYPE *page, int index)
+INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *buffer_pool_manager, Page *page, int index)
     : buffer_pool_manager_(buffer_pool_manager),
       page_(page),
       index_(index),
@@ -21,6 +21,7 @@ INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *buffer_pool_manager, B_PLUS
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::~IndexIterator() {
   if (!isEnd()) {
+    page_->RUnlatch();
     buffer_pool_manager_->UnpinPage(page_->GetPageId(), false);
   }
 };
@@ -36,7 +37,10 @@ INDEX_TEMPLATE_ARGUMENTS
 bool INDEXITERATOR_TYPE::operator!=(const IndexIterator &itr) const { return !operator==(itr); }
 
 INDEX_TEMPLATE_ARGUMENTS
-const MappingType &INDEXITERATOR_TYPE::operator*() { return page_->GetItem(index_); }
+const MappingType &INDEXITERATOR_TYPE::operator*() {
+  LeafPage* leaf = reinterpret_cast<LeafPage *>(page_);
+  return leaf->GetItem(index_);
+}
 
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE &INDEXITERATOR_TYPE::operator++() {
@@ -44,19 +48,24 @@ INDEXITERATOR_TYPE &INDEXITERATOR_TYPE::operator++() {
     return *this;
   }
 
-  if (index_ < page_->GetSize() - 1) {
+  LeafPage *leaf = reinterpret_cast<LeafPage *>(page_);
+  if (index_ < leaf->GetSize() - 1) {
     index_++;
   } else {
-    index_ = 0;
-    buffer_pool_manager_->UnpinPage(page_id_, false);
+    Page* old_page = page_;
 
     // 移动到下一页
-    page_id_ = page_->GetNextPageId();
+    page_id_ = leaf->GetNextPageId();
     if (page_id_ != INVALID_PAGE_ID) {
-      page_ = reinterpret_cast<LeafPage *>(buffer_pool_manager_->FetchPage(page_id_)->GetData());
+      page_  = buffer_pool_manager_->FetchPage(page_id_);
+      page_->RLatch();
     } else {
       page_ = nullptr;
     }
+
+    index_ = 0;
+    old_page->RUnlatch();
+    buffer_pool_manager_->UnpinPage(old_page->GetPageId(), false);
   }
 
   return *this;

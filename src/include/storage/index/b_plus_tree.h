@@ -23,6 +23,9 @@ namespace bustub {
 
 #define BPLUSTREE_TYPE BPlusTree<KeyType, ValueType, KeyComparator>
 
+// define B+ tree operation type enum
+enum class OperationType { READ = 0, INSERT, REMOVE };
+
 /**
  * Main class providing the API for the Interactive B+ Tree.
  *
@@ -77,7 +80,8 @@ class BPlusTree {
   // read data from file and remove one by one
   void RemoveFromFile(const std::string &file_name, Transaction *transaction = nullptr);
   // expose for test purpose
-  Page *FindLeafPage(const KeyType &key, bool leftMost = false);
+  Page *FindLeafPage(const KeyType &key, bool leftMost = false, OperationType operation = OperationType::READ,
+                     Transaction *transaction = nullptr);
 
  private:
   void StartNewTree(const KeyType &key, const ValueType &value);
@@ -121,6 +125,21 @@ class BPlusTree {
    */
   Page *NewPage(page_id_t *page_id);
 
+  /**
+   * whether the page is safe with operation
+   */
+  bool IsPageSafe(BPlusTreePage *page, OperationType operation);
+
+  /**
+   * unlock ancestor pages
+   */
+  void UnlockAncestors(Transaction *transaction, bool unpin = true);
+
+  /**
+   * delete pages
+   */
+  void DeletePages(Transaction *transaction);
+
   // member variable
   std::string index_name_;
   page_id_t root_page_id_;
@@ -128,6 +147,7 @@ class BPlusTree {
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
+  std::mutex root_latch_;  // 保护根节点 id 不变的锁
 };
 
 }  // namespace bustub
