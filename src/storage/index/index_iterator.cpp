@@ -12,6 +12,9 @@ namespace bustub {
  * set your own input parameters
  */
 INDEX_TEMPLATE_ARGUMENTS
+INDEXITERATOR_TYPE::IndexIterator() : IndexIterator(nullptr, nullptr, 0){};
+
+INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *buffer_pool_manager, Page *page, int index)
     : buffer_pool_manager_(buffer_pool_manager),
       page_(page),
@@ -38,7 +41,7 @@ bool INDEXITERATOR_TYPE::operator!=(const IndexIterator &itr) const { return !op
 
 INDEX_TEMPLATE_ARGUMENTS
 const MappingType &INDEXITERATOR_TYPE::operator*() {
-  LeafPage* leaf = reinterpret_cast<LeafPage *>(page_);
+  LeafPage *leaf = reinterpret_cast<LeafPage *>(page_);
   return leaf->GetItem(index_);
 }
 
@@ -52,12 +55,12 @@ INDEXITERATOR_TYPE &INDEXITERATOR_TYPE::operator++() {
   if (index_ < leaf->GetSize() - 1) {
     index_++;
   } else {
-    Page* old_page = page_;
+    Page *old_page = page_;
 
     // 移动到下一页
     page_id_ = leaf->GetNextPageId();
     if (page_id_ != INVALID_PAGE_ID) {
-      page_  = buffer_pool_manager_->FetchPage(page_id_);
+      page_ = buffer_pool_manager_->FetchPage(page_id_);
       page_->RLatch();
     } else {
       page_ = nullptr;

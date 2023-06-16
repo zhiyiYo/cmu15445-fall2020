@@ -17,9 +17,36 @@ namespace bustub {
 
 UpdateExecutor::UpdateExecutor(ExecutorContext *exec_ctx, const UpdatePlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) {}
+    : AbstractExecutor(exec_ctx),
+      plan_(plan),
+      table_info_(exec_ctx->GetCatalog()->GetTable(plan->TableOid())),
+      child_executor_(std::move(child_executor)),
+      index_infos_(exec_ctx->GetCatalog()->GetTableIndexes(table_info_->name_)) {}
 
-void UpdateExecutor::Init() {}
+void UpdateExecutor::Init() { child_executor_->Init(); }
 
-bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) { return false; }
+bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
+  if (!child_executor_->Next(tuple, rid)) {
+    return false;
+  }
+
+  // 更新数据表
+  auto new_tuple = GenerateUpdatedTuple(*tuple);
+  table_info_->table_->UpdateTuple(new_tuple, *rid, exec_ctx_->GetTransaction());
+
+  // 更新索引
+  for (auto &index_info : index_infos_) {
+    // 删除旧的 tuple
+    index_info->index_->DeleteEntry(
+        tuple->KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs()), *rid,
+        exec_ctx_->GetTransaction());
+
+    // 插入新的 tuple
+    index_info->index_->InsertEntry(
+        new_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs()), *rid,
+        exec_ctx_->GetTransaction());
+  }
+
+  return true;
+}
 }  // namespace bustub

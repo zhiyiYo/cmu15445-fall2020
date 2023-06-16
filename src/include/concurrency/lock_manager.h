@@ -57,14 +57,14 @@ class LockManager {
   LockManager() {
     enable_cycle_detection_ = true;
     cycle_detection_thread_ = new std::thread(&LockManager::RunCycleDetection, this);
-    LOG_INFO("Cycle detection thread launched");
+    // LOG_INFO("Cycle detection thread launched");
   }
 
   ~LockManager() {
     enable_cycle_detection_ = false;
     cycle_detection_thread_->join();
     delete cycle_detection_thread_;
-    LOG_INFO("Cycle detection thread stopped");
+    // LOG_INFO("Cycle detection thread stopped");
   }
 
   /*
