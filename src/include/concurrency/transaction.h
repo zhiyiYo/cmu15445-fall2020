@@ -231,6 +231,8 @@ class Transaction {
   /** @return the current state of the transaction */
   inline TransactionState GetState() { return state_; }
 
+  inline bool IsAborted() { return state_ == TransactionState::ABORTED; }
+
   /**
    * Set the state of the transaction.
    * @param state new state

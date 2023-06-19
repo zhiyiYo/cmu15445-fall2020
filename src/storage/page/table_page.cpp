@@ -82,6 +82,8 @@ bool TablePage::InsertTuple(const Tuple &tuple, RID *rid, Transaction *txn, Lock
     SetLSN(lsn);
     txn->SetPrevLSN(lsn);
   }
+  
+  lock_manager->LockExclusive(txn, *rid);
   return true;
 }
 

@@ -48,7 +48,7 @@ bool InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
 }
 
 void InsertExecutor::InsertTuple(Tuple *tuple, RID *rid) {
-  // 更新数据表
+  // 更新数据表，需要在 TablePage::InsertTuple 中加锁
   table_metadata_->table_->InsertTuple(*tuple, rid, exec_ctx_->GetTransaction());
 
   // 更新索引
@@ -56,6 +56,10 @@ void InsertExecutor::InsertTuple(Tuple *tuple, RID *rid) {
     index_info->index_->InsertEntry(
         tuple->KeyFromTuple(table_metadata_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs()), *rid,
         exec_ctx_->GetTransaction());
+
+    IndexWriteRecord record(*rid, table_metadata_->oid_, WType::INSERT, *tuple, index_info->index_oid_,
+                            exec_ctx_->GetCatalog());
+    exec_ctx_->GetTransaction()->AppendTableWriteRecord(record);
   }
 }
 

@@ -18,12 +18,25 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
 
 void SeqScanExecutor::Init() { it_ = table_metadata_->table_->Begin(exec_ctx_->GetTransaction()); }
 
+void SeqScanExecutor::Unlock(Transaction *txn, const RID &rid) {
+  if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
+    exec_ctx_->GetLockManager()->Unlock(txn, rid);
+  }
+}
+
 bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
   auto predicate = plan_->GetPredicate();
+  auto txn = exec_ctx_->GetTransaction();
 
   while (it_ != table_metadata_->table_->End()) {
+    *rid = it_->GetRid();
+
+    // 上锁
+    if (txn->GetIsolationLevel() != IsolationLevel::READ_UNCOMMITTED && !txn->IsExclusiveLocked(*rid)) {
+      exec_ctx_->GetLockManager()->LockShared(txn, *rid);
+    }
+
     *tuple = *it_++;
-    *rid = tuple->GetRid();
 
     if (!predicate || predicate->Evaluate(tuple, &table_metadata_->schema_).GetAs<bool>()) {
       // 只保留输出列
@@ -33,8 +46,13 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
       }
 
       *tuple = {values, GetOutputSchema()};
+
+      // 解锁
+      Unlock(txn, *rid);
       return true;
     }
+
+    Unlock(txn, *rid);
   }
 
   return false;

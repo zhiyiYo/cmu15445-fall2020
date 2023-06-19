@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <set>
 
 #include "common/rid.h"
 #include "concurrency/transaction.h"
@@ -48,6 +49,8 @@ class LockManager {
     std::list<LockRequest> request_queue_;
     std::condition_variable cv_;  // for notifying blocked transactions on this rid
     bool upgrading_ = false;
+    uint32_t reader_count_ = 0;
+    bool writer_enter_ = false;
   };
 
  public:
@@ -138,8 +141,22 @@ class LockManager {
 
   /** Lock table for lock requests. */
   std::unordered_map<RID, LockRequestQueue> lock_table_;
+
   /** Waits-for graph representation. */
   std::unordered_map<txn_id_t, std::vector<txn_id_t>> waits_for_;
+  std::unordered_map<txn_id_t, RID> wait_rids_;
+  std::set<txn_id_t> on_stack_txns_;
+  std::set<txn_id_t> txns_;
+  bool has_cycle_{false};
+
+  void CheckShrinking(Transaction *txn);
+  void CheckAborted(Transaction *txn);
+
+  void AbortTransaction(txn_id_t txn_id);
+
+  void DFS(txn_id_t txn_id);
+
+  std::list<LockRequest>::iterator GetRequest(txn_id_t txn_id, const RID &rid);
 };
 
 }  // namespace bustub
