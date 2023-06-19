@@ -42,9 +42,7 @@ bool LockManager::LockShared(Transaction *txn, const RID &rid) {
   auto &request = queue.request_queue_.emplace_back(txn_id, LockMode::SHARED);
 
   // 没拿到锁就进入阻塞状态
-  LOG_INFO("事务 %u 试图在 %u 上加读锁", txn_id, rid.GetSlotNum());
   queue.cv_.wait(lock, [&] { return !queue.writer_enter_ || txn->IsAborted(); });
-  LOG_INFO("事务 %u 成功在 %u 上加读锁", txn_id, rid.GetSlotNum());
 
   // 死锁会导致事务中止
   CheckAborted(txn);
@@ -71,9 +69,7 @@ bool LockManager::LockExclusive(Transaction *txn, const RID &rid) {
   auto &request = queue.request_queue_.emplace_back(txn->GetTransactionId(), LockMode::EXCLUSIVE);
 
   // 没有拿到写锁就进入阻塞状态
-  LOG_INFO("事务 %u 试图在 %u 上加写锁", txn->GetTransactionId(), rid.GetSlotNum());
   queue.cv_.wait(lock, [&] { return (!queue.writer_enter_ && queue.reader_count_ == 0) || txn->IsAborted(); });
-  LOG_INFO("    事务 %u 成功在 %u 上加写锁", txn->GetTransactionId(), rid.GetSlotNum());
 
   // 死锁会导致事务中止
   CheckAborted(txn);
@@ -102,9 +98,7 @@ bool LockManager::LockUpgrade(Transaction *txn, const RID &rid) {
   }
 
   queue.upgrading_ = true;
-  LOG_INFO("事务 %u 试图在 %u 上升级为写锁", txn->GetTransactionId(), rid.GetSlotNum());
   queue.cv_.wait(lock, [&] { return (!queue.writer_enter_ && queue.reader_count_ == 0) || txn->IsAborted(); });
-  LOG_INFO("    事务 %u 成功在 %u 上升级为写锁", txn->GetTransactionId(), rid.GetSlotNum());
 
   // 死锁会导致事务中止
   CheckAborted(txn);
@@ -134,7 +128,6 @@ bool LockManager::Unlock(Transaction *txn, const RID &rid) {
   // 从加锁请求队列中移除事务的请求
   auto &queue = lock_table_[rid];
   queue.request_queue_.erase(request_it);
-  LOG_INFO("事务 %u 成功在 %u 上释放锁", txn->GetTransactionId(), rid.GetSlotNum());
 
   if (lock_mode == LockMode::SHARED) {
     // 唤醒等待读锁的线程
